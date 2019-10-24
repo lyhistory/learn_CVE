@@ -8,7 +8,8 @@ Caused by: com.alibaba.fastjson.JSONException: autoType is not support.
 引起我查询到https://github.com/alibaba/fastjson/wiki/enable_autotype
 
 注意：
-	fastjson version/jdk version/RMI OR LADP 都会影响到具体漏洞利用；
+	fastjson version/jdk version/RMI OR LADP 都会影响到具体漏洞利用,比如：
+	fastjson	Feature.SupportNonPublicField;
 	大部分的jndi注入都是基于jdk8u121之前的版本，之后因为trustURLCodebase=true需要更多工作（绕过）；
 	
 1.参考
