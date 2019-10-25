@@ -2,6 +2,7 @@
 
 -----------------------------------------------------------------------------
 ## FastJson RCE
+https://github.com/alibaba/fastjson/releases
 -----------------------------------------------------------------------------
 由一个报错
 Caused by: com.alibaba.fastjson.JSONException: autoType is not support.
@@ -49,6 +50,9 @@ jdk高版本绕过
 Oracle在>=jdk8u121之后设置了com.sun.jndi.rmi.object.trustURLCodebase为 false
 https://bl4ck.in/tricks/2019/01/04/JNDI-Injection-Bypass.html
 https://kingx.me/Restrictions-and-Bypass-of-JNDI-Manipulations-RCE.html
+
+https://github.com/kxcode/JNDI-Exploit-Bypass-Demo
+
 
 -----------------------------------------------------------------------------
 ## Other

