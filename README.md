@@ -53,6 +53,10 @@ https://kingx.me/Restrictions-and-Bypass-of-JNDI-Manipulations-RCE.html
 
 https://github.com/kxcode/JNDI-Exploit-Bypass-Demo
 
+浅谈Fastjson RCE漏洞的绕过史  https://www.freebuf.com/vuls/208339.html
+
+fastjson的CVE bug监测较弱，很多CVE数据库网站上有关fastjson的CVE寥寥无几，例如近期的AutoType导致的高危漏洞，虽然和Jackson的PolymorphicDeserialization是同样的bug，但是CVE网站上几乎没有fastjson的bug报告。
+https://www.cnblogs.com/larva-zhh/p/11544317.html
 
 -----------------------------------------------------------------------------
 ## Other
